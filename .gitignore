@@ -3,6 +3,7 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=vscode,sublimetext,vim,django,python
 
 ### Django ###
+nohup.out
 my_settings.py
 *.log
 *.pot

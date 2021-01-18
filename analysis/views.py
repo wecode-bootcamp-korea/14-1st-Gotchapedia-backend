@@ -70,21 +70,26 @@ class StarView(View):
 
         try:
             star_check = Star.objects.filter(
-                user_id  = request.user,
+                user_id  = request.user.id,
                 movie_id = data["movieId"]
             )
+            if data["starPoint"] == None or data["starPoint"] == '' :
+                data["starPoint"] = 0
 
-            if star_check.exists():
-                return JsonResponse({"message":"ALREADY_EXISTS"}, status=400)
-
-            if float(data["starPoint"])*2 %1 != 0 or float(data["starPoint"]) == 0:
+            if float(data["starPoint"])*2 %1 != 0:
                 return JsonResponse({"message":"VALUE_ERROR"}, status=400)
-
-            star = Star.objects.create(
-                user_id  = request.user,
-                movie_id = data["movieId"],
-                point    = data["starPoint"]
-            )
+            
+            if star_check.exists():
+#                return JsonResponse({"message":"ALREADY_EXISTS"}, status=400)
+                star = Star.objects.get(user_id=request.user.id, movie_id=data["movieId"])
+                star.point = data["starPoint"]
+                star.save()
+            else:
+                star = Star.objects.create(
+                    user_id  = request.user.id,
+                    movie_id = data["movieId"],
+                    point    = data["starPoint"]
+                )
 
             feedback = {
                 "starPoint"    : star.point

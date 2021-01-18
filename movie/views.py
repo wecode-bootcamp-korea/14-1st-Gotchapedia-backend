@@ -25,7 +25,6 @@ class SearchView(View):
 
         return JsonResponse({ 'result' : movielist }, status=200)
 
-
 class MoviesUserView(View):
     def get(self, request):
         account_id = request.GET.get('id')
@@ -33,18 +32,27 @@ class MoviesUserView(View):
         try:
             if account_id:
                 stars = Star.objects.select_related('movie').filter(user_id=int(account_id)).order_by('-point')
-            else:
-                stars = Star.objects.select_related('movie').all().order_by('-point')
+                context = {
+                    'data': [{
+                        'movieId': star.movie.id,
+                        'imageURL': star.movie.main_image,
+                        'title': star.movie.name,
+                        'rate': star.point,
+                        'date': f'{star.movie.opening_at.year} . {star.movie.country}'
+                     } for star in stars]
+                }
 
-            context = {
-                'data': [{
-                    'movieId': star.movie.id,
-                    'imageURL': star.movie.main_image,
-                    'title': star.movie.name,
-                    'rate': star.point,
-                    'date': f'{star.movie.opening_at.year} . {star.movie.country}'
-                 } for star in stars]
-            }
+            else:
+                context = {
+                    'data': [{
+                        'movieId': movie.id,
+                        'imageURL': movie.main_image,
+                        'title': movie.name,
+                        'rate': 0,
+                        'date': ''
+                     } for movie in Movie.objects.all()]
+                }
+                
             return JsonResponse(context, status=200)
         except ValueError:
             return JsonResponse({'message': 'INSTANCE_IS_NOT_NUMBER'}, status=400)
@@ -108,6 +116,7 @@ class MovieDetailView(View):
         movie_info = Movie.objects.prefetch_related('moviegenre_set').get(id=movie_id)
 
         feedback = {
+                "id"          : movie_info.id,
                 "name"        : movie_info.name,
                 "country"     : movie_info.country,
                 "description" : movie_info.description,
@@ -216,14 +225,14 @@ class CommentListView(View):
 
 class CommentView(View):
     @login_decorator
-    def post(self, request):
+    def post(self, request, movie_id):
         data = json.loads(request.body)
 
         try:
-            movie_check = Movie.objects.filter(id = data["movieId"])
+            movie_check = Movie.objects.filter(id = movie_id)
             star_check  = Star.objects.filter(
                 user_id  = request.user.id,
-                movie_id = data["movieId"]
+                movie_id = movie_id
             )
 
             if not movie_check.exists():
@@ -232,17 +241,9 @@ class CommentView(View):
             if not star_check.exists():
                 return JsonResponse({"message":" NO_PERMISSION"}, status=403)
 
-            comment_check = Comment.objects.filter(
-                user_id  = request.user.id,
-                movie_id = data["movieId"]
-            )
-
-            if comment_check.exists():
-                return JsonResponse({"message": "ALREADY_EXIST"}, status=400)
-
             comment = Comment.objects.create(
                 user_id    = request.user.id,
-                movie_id   = data["movieId"],
+                movie_id   = movie_id,
                 content    = data["content"]
             )
 
@@ -259,7 +260,7 @@ class CommentView(View):
             return Jsonresponse({"message": "KEY_ERROR"}, status=400)
 
     @login_decorator
-    def get(self, request, comment_id):
+    def get(self, request, movie_id, comment_id):
         check_comment = Comment.objects.filter(id=comment_id)
 
         if not check_comment.exists():
@@ -278,7 +279,7 @@ class CommentView(View):
         return JsonResponse(feedback, status=200)
 
     @login_decorator
-    def patch(self, request, comment_id):
+    def patch(self, request, movie_id, comment_id):
         data = json.loads(request.body)
 
         try:
@@ -301,7 +302,7 @@ class CommentView(View):
             return JsonResponse({"message": "KEY_ERROR"}, status=400)
 
     @login_decorator
-    def delete(self, request, comment_id):
+    def delete(self, request, movie_id, comment_id):
         check_comment = Comment.objects.filter(id=comment_id)
 
         if not check_comment.exists():
